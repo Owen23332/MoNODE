@@ -25,7 +25,7 @@ class ODEfunc(nn.Module):
     def device(self):
         return self.diffeq.device
 
-    def augment(self,zc=None):
+    def augment(self, zc=None):
         self.zc = zc
 
     def before_odeint(self, rebuild_cache, zc=None):
@@ -35,10 +35,10 @@ class ODEfunc(nn.Module):
 
     def num_evals(self):
         return self._num_evals.item()
-    
+
     def concat_zc(self, sv):
         if self.zc is not None:
-            return torch.cat([sv,self.zc],-1) 
+            return torch.cat([sv, self.zc], -1) 
         else:
             return sv
 
@@ -63,7 +63,7 @@ class ODEfunc(nn.Module):
 
 
 class Flow(nn.Module):
-    def __init__(self, diffeq=None, order = 2, solver='dopri5', atol=1e-6, rtol=1e-6, use_adjoint='adjoint'):
+    def __init__(self, diffeq=None, order=2, solver='dopri5', atol=1e-6, rtol=1e-6, use_adjoint='adjoint'):
         """
         Defines an ODE flow:
             mainly defines forward() method for forward numerical integration of an ODEfunc object

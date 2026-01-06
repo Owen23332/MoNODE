@@ -121,6 +121,7 @@ def plot_sin(X, Xrec, show=False, fname='predictions.png', N=None, D=None):
         Xrec - [L,N,Ttest,d]
     '''
 
+
     if N is None:
         N = min(X.shape[0],6)
     if D is None:

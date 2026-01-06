@@ -7,7 +7,7 @@ from model.misc import log_utils
 from model.misc.plot_utils import plot_results
 
 
-def elbo(model, X, Xrec, s0_mu, s0_logv, v0_mu, v0_logv,L):
+def elbo(model, X, Xrec, s0_mu, s0_logv, v0_mu, v0_logv, L):
     ''' Input:
             qz_m        - latent means [N,2q]
             qz_logv     - latent logvars [N,2q]
@@ -19,14 +19,15 @@ def elbo(model, X, Xrec, s0_mu, s0_logv, v0_mu, v0_logv,L):
     '''
     # KL reg
     q = model.vae.encoder.q_dist(s0_mu, s0_logv, v0_mu, v0_logv)
-    kl_z0 = kl(q, model.vae.prior).sum(-1) #N
+    kl_z0 = kl(q, model.vae.prior).sum(-1)  # N
 
-    #Reconstruction log-likelihood
-    lhood = model.vae.decoder.log_prob(X,Xrec,L) #L,N,T,d,nc,nc
-    idx   = list(np.arange(X.ndim+1)) # 0,1,2,...
-    lhood = lhood.sum(idx[2:]).mean(0) #N
+    # Reconstruction log-likelihood
+    lhood = model.vae.decoder.log_prob(X, Xrec, L)  # L,N,T,d,nc,nc
+    idx   = list(np.arange(X.ndim+1))  # 0,1,2,...
+    lhood = lhood.sum(idx[2:]).mean(0)  # N
 
-    return lhood.mean(), kl_z0.mean() 
+    return lhood.mean(), kl_z0.mean()
+
 
 
 def contrastive_loss(C):
@@ -50,7 +51,8 @@ def compute_mse(model, data, T_train, L=1, task=None):
     T_max = 0
     T = data.shape[1]
     #run model    
-    Xrec, ztL, (s0_mu, s0_logv), (v0_mu, v0_logv), C, c, m = model(data, L, T)
+    #Xrec, ztL, (s0_mu, s0_logv), (v0_mu, v0_logv), C, c, m = model(data, L, T)#
+    Xrec, ztL, (s0_mu, s0_logv), (v0_mu, v0_logv), C, c, m, mean_est, cov_est = model(data, L, T) #*#
     
     dict_mse = {}
     while T_max < T:
@@ -66,6 +68,58 @@ def compute_mse(model, data, T_train, L=1, task=None):
             dict_mse[str(T_max)] = mse 
     return dict_mse 
 
+def loss_prior(Xrec, m, mean_est, cov_est, eps=1e-6):
+    """
+    Xrec: (L, N, T, d)
+    m:    (L, N, q)
+    """
+    Ls, N, T, d = Xrec.shape
+    q = m.shape[-1]
+    device = Xrec.device
+    dtype = Xrec.dtype
+
+    loss = 0.0
+    log2pi = torch.log(torch.tensor(2.0 * torch.pi, device=device, dtype=dtype))
+
+    for l in range(Ls):
+        t0s = torch.randint(0, T - q + 1, (N,), device=device)
+
+        _X = torch.stack(
+            [Xrec[l, i, t0:t0 + q] for i, t0 in enumerate(t0s)],
+            dim=0
+        )                                   # (N, q, d)
+
+        mu = mean_est(_X)                  # (N, q)
+        cov = cov_est(_X)                  # (N, q, q)
+        cov = cov + eps * torch.eye(q, device=device, dtype=dtype).unsqueeze(0)
+
+        # ---- Cholesky factor ----
+        L = torch.linalg.cholesky(cov)     # (N, q, q)
+
+        diff = m[l] - mu                   # (N, q)
+        diff_col = diff.unsqueeze(-1)      # (N, q, 1)
+
+        # quadratic form
+        sol = torch.cholesky_solve(diff_col, L)   # (N, q, 1)
+        quad = (diff_col * sol).sum(dim=(1, 2))   # (N,)
+
+        # log-determinant
+        logdet = 2.0 * torch.sum(
+            torch.log(torch.diagonal(L, dim1=-2, dim2=-1)),
+            dim=1
+        )                                           # (N,)
+
+        log_p_m = -0.5 * (
+            quad
+            + logdet
+            + q * log2pi
+        )                                           # (N,)
+
+        loss = loss + log_p_m.sum()
+
+    return -loss / (Ls * N)
+
+
 
 def compute_loss(model, data, L, num_observations):
     """
@@ -78,20 +132,23 @@ def compute_loss(model, data, L, num_observations):
     T = data.shape[1]
 
     #run model    
-    Xrec, ztL, (s0_mu, s0_logv), (v0_mu, v0_logv), C, c, m = model(data, L, T_custom=T)
+    #Xrec, ztL, (s0_mu, s0_logv), (v0_mu, v0_logv), C, c, m = model(data, L, T_custom=T)#
+    Xrec, ztL, (s0_mu, s0_logv), (v0_mu, v0_logv), C, c, m, mean_est, cov_est = model(data, L, T_custom=T) #*#
 
     #compute loss
-    if model.model =='sonode':
+    if model.model == 'sonode':
         mse   = torch.mean((Xrec-data)**2)
         loss = mse 
         return loss, 0.0, 0.0, Xrec, ztL, mse, c, m
     
-    elif model.model =='node' or model.model == 'hbnode':
-        lhood, kl_z0 = elbo(model, data, Xrec, s0_mu, s0_logv, v0_mu, v0_logv,L)
+    elif model.model == 'node' or model.model == 'hbnode':
+        lhood, kl_z0 = elbo(model, data, Xrec, s0_mu, s0_logv, v0_mu, v0_logv, L)
         
         lhood = lhood * num_observations
         kl_z0 = kl_z0 * num_observations
-        loss  = - lhood + kl_z0
+
+        #loss  = - lhood + kl_z0#
+        loss = - lhood + kl_z0 + loss_prior(Xrec, m, mean_est, cov_est)  #*#
         mse   = torch.mean((Xrec-data)**2)
         return loss, -lhood, kl_z0, Xrec, ztL, mse, c, m
     
@@ -108,7 +165,7 @@ def freeze_pars(par_list):
 def train_model(args, model, plotter, trainset, validset, testset, logger, params, freeze_dyn=False):
 
     loss_meter  = log_utils.CachedRunningAverageMeter(0.97)
-    tr_mse_meter   = log_utils.CachedRunningAverageMeter(0.97)
+    tr_mse_meter = log_utils.CachedRunningAverageMeter(0.97)
     vl_mse_rec  = log_utils.CachedRunningAverageMeter(0.97)
     vl_mse_for = log_utils.CachedRunningAverageMeter(0.97)
     time_meter = log_utils.CachedRunningAverageMeter(0.97)
@@ -126,14 +183,14 @@ def train_model(args, model, plotter, trainset, validset, testset, logger, param
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 
     ########## Training loop ###########
-    start_time=datetime.now()
+    start_time = datetime.now()
     global_itr = 0
     best_valid_loss = None
     test_mse = 0.0
     #increase the data set length in N increments sequentally 
     T_train = params['train']['T']
     if args.task == 'rot_mnist':
-        T_train = params['train']['T'] - 1 #compute mse for one loop
+        T_train = params['train']['T'] - 1  # compute mse for one loop
     ep_inc_c = args.Nepoch // args.Nincr
     ep_inc_v = T_train // args.Nincr
     T_ = ep_inc_v
@@ -144,12 +201,12 @@ def train_model(args, model, plotter, trainset, validset, testset, logger, param
         if args.model == 'sonode':
             L=1
         else:
-            L = 1 if ep<args.Nepoch//2 else 5 
+            L = 1 if ep <args.Nepoch//2 else 5 
 
         if (ep != 0) and (ep % ep_inc_c == 0):
             T_ += ep_inc_v
 
-        for itr,local_batch in enumerate(trainset):
+        for itr, local_batch in enumerate(trainset):
             tr_minibatch = local_batch.to(model.device) # N,T,...
             if args.task=='sin' or args.task=='spiral' or args.task=='lv' or 'mocap' in args.task: #slowly increase sequence length
                 [N,T] = tr_minibatch.shape[:2]
@@ -185,7 +242,7 @@ def train_model(args, model, plotter, trainset, validset, testset, logger, param
             for valid_batch in validset:
                 valid_batch = valid_batch.to(model.device)
                 dict_mse = compute_mse(model, valid_batch, T_train)
-                for key,val in dict_mse.items():
+                for key, val in dict_mse.items():
                         if key not in dict_valid_mses:
                             dict_valid_mses[key] = []
                         dict_valid_mses[key].append(val.item())
@@ -228,8 +285,8 @@ def train_model(args, model, plotter, trainset, validset, testset, logger, param
                     logger.info('T={} test_mse {:5.3f}({:5.3f})'.format(key, np.mean(dict_test_mses[key]), np.std(dict_test_mses[key])))
 
             if ep % args.plot_every==0 or (ep+1) == args.Nepoch:
-                Xrec_tr, ztL_tr, _, _, C_tr, _, _ = model(tr_minibatch, L=args.plotL, T_custom=args.forecast_tr*tr_minibatch.shape[1])
-                Xrec_vl, ztL_vl, _, _, C_vl, _, _ = model(valid_batch,  L=args.plotL, T_custom=args.forecast_vl*valid_batch.shape[1])
+                Xrec_tr, ztL_tr, _, _, C_tr, _, _, _, _ = model(tr_minibatch, L=args.plotL, T_custom=args.forecast_tr*tr_minibatch.shape[1]) #please remove last two _,_#
+                Xrec_vl, ztL_vl, _, _, C_vl, _, _, _, _ = model(valid_batch,  L=args.plotL, T_custom=args.forecast_vl*valid_batch.shape[1]) #please remove last two _,_#
                 
                 if args.model == 'node' or args.model == 'hbnode':
                     plot_results(plotter, \

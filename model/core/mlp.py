@@ -42,8 +42,8 @@ class MLP(nn.Module):
         self.n_out  = n_out
         self.layers = nn.ModuleList([])
         self.acts   = nn.ModuleList([])
-        for i,(n_in,n_out) in enumerate(zip(layers_ins,layers_outs)):
-            self.layers.append(nn.Linear(n_in,n_out))
+        for i, (n_in, n_out) in enumerate(zip(layers_ins, layers_outs)):
+            self.layers.append(nn.Linear(n_in, n_out))
             self.acts.append(get_act(act) if i<L else get_act('linear')) # no act. in final layer
         self.skip_con = skip_con
         self.reset_parameters()
@@ -64,10 +64,10 @@ class MLP(nn.Module):
         return torch.zeros(1).to(self.device)
 
     def forward(self, x):
-        for i,(act,layer) in enumerate(zip(self.acts,self.layers)):
+        for i, (act, layer) in enumerate(zip(self.acts, self.layers)):
             h = layer(x)
             h = act(h)
-            x = x+h if self.skip_con and 0<i and i<self.n_hid_layers else h
+            x = x+h if self.skip_con and 0 < i and i <self.n_hid_layers else h
         return x
     
     def draw_f(self):

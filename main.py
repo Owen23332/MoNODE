@@ -24,7 +24,7 @@ parser.add_argument('--Nobj', type=int, default=1,
                     help="param that can be used for multiple object set-up")                 
 parser.add_argument('--num_workers', type=int, default=0,
                     help="number of workers")
-parser.add_argument('--data_root', type=str, default='data/',
+parser.add_argument('--data_root', type=str, default='data/', 
                     help="general data location")
 parser.add_argument('--shuffle', type=eval, default=True,
                help='For Moving MNIST whetehr to shuffle the data')
@@ -108,7 +108,7 @@ parser.add_argument('--exp_id', type=int, default=0,
                     help = 'exp ID for directory')
 
 #log 
-parser.add_argument('--save', type=str, default='results/',
+parser.add_argument('--save', type=str, default='results/', 
                     help="Directory name for saving all the model outputs")
 
 
@@ -117,7 +117,7 @@ if __name__ == '__main__':
 
     ######### setup output directory and logger ###########
     args.save = os.path.join(os.path.abspath(os.path.dirname(__file__)), \
-        args.save+args.task+'/'+args.model+'/'+datetime.now().strftime('%d_%m_%Y-%H:%M-')+str(args.exp_id), '')
+        args.save+args.task+'/'+args.model+'/'+datetime.now().strftime('%d_%m_%Y-%H-%M-')+str(args.exp_id), '')
     
     ############################
     io_utils.makedirs(args.save)
@@ -152,6 +152,9 @@ if __name__ == '__main__':
 
     ########### model ###########
     model = build_model(args, device, dtype)
+    print("-----------------------------------------------------------model parameters-----------------------------------------------------------------")
+    for parameter in model.parameters():
+        print(parameter)
     model.to(device)
     model.to(dtype)
 

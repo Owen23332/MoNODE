@@ -22,24 +22,24 @@ def build_model(args, device, dtype):
 
     if args.model == 'hbnode':
         D_in  = int(args.ode_latent_dim/args.order)
-        D_out = int(args.ode_latent_dim / args.order)
+        D_out = int(args.ode_latent_dim/args.order)
     else:
         D_in = args.ode_latent_dim
-        D_out = int(args.ode_latent_dim / args.order)
+        D_out = int(args.ode_latent_dim/args.order)
 
-    if aug: # augmented dynamics
+    if aug:  # augmented dynamics
         D_in += args.modulator_dim
 
     # latent ode 
-    if args.model == 'node' or args.model =='sonode':
+    if args.model == 'node' or args.model == 'sonode':
         if args.model == 'node':
-            de = MLP(D_in, D_out, L=args.de_L, H=args.de_H, act='softplus') 
+            de = MLP(D_in, D_out, L=args.de_L, H=args.de_H, act='softplus')
         elif args.model == 'sonode':
             de = MLP(D_in, D_out, L=args.de_L, H=args.de_H, act='elu')
     
         flow = Flow(diffeq=de, order=args.order, solver=args.solver, use_adjoint=args.use_adjoint)
 
-    elif args.model=='hbnode':
+    elif args.model == 'hbnode':
         de = MLP(D_in, D_out, L=args.de_L, H=args.de_H, act='softplus')
         odefunc = HBNODE_BASE(de, corr=0, corrf=True)
     
@@ -48,8 +48,8 @@ def build_model(args, device, dtype):
 
     # encoder & decoder
     if args.model == 'node' or args.model == 'hbnode':
-        vae = VAE(task=args.task, cnn_filt_enc=args.cnn_filt_enc, cnn_filt_de = args.cnn_filt_de, ode_latent_dim=args.ode_latent_dim//args.order, 
-            dec_act=args.dec_act, rnn_hidden=args.rnn_hidden, dec_H=args.dec_H, enc_H = args.enc_H,
+        vae = VAE(task=args.task, cnn_filt_enc=args.cnn_filt_enc, cnn_filt_de = args.cnn_filt_de, ode_latent_dim=args.ode_latent_dim//args.order,
+            dec_act=args.dec_act, rnn_hidden=args.rnn_hidden, dec_H=args.dec_H, enc_H=args.enc_H,
             content_dim=args.content_dim, T_in=args.T_in, order=args.order, device=device).to(dtype)
     elif args.model == 'sonode':
         if args.sonode_v == 'MLP':
@@ -62,10 +62,10 @@ def build_model(args, device, dtype):
     # time-invariant network
     if args.modulator_dim>0 or args.content_dim>0:
         if args.task == 'bb':
-            inv_enc = INV_ENC(task=args.task, modulator_dim=args.modulator_dim, content_dim = args.content_dim,
+            inv_enc = INV_ENC(task=args.task, modulator_dim=args.modulator_dim, content_dim=args.content_dim,
                 cnn_filt=args.cnn_filt_inv, rnn_hidden=10, T_inv=args.T_inv, vae_enc=vae.encoder, device=device).to(dtype)
         else:
-            inv_enc = INV_ENC(task=args.task, modulator_dim=args.modulator_dim, content_dim = args.content_dim,
+            inv_enc = INV_ENC(task=args.task, modulator_dim=args.modulator_dim, content_dim=args.content_dim,
                 cnn_filt=args.cnn_filt_inv, rnn_hidden=10, T_inv=args.T_inv, vae_enc=None, device=device).to(dtype)
     else:
         inv_enc = None

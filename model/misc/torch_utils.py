@@ -15,7 +15,7 @@ class Flatten(nn.Module):
         return input.view(input.size(0), -1)
 
 class UnFlatten(nn.Module):
-    def __init__(self,w):
+    def __init__(self, w):
         super().__init__()
         self.w = w
     def forward(self, input):

@@ -58,18 +58,18 @@ def gen_sin_data(data_path, params, flag, task='sin'):
 	T = params[task][flag]['T']
 	noise = params[task]['noise']
 	plot = True if flag=='train' else False
-	phis = torch.rand(N,1) #
-	fs = torch.rand(N,1) * .5 + .5 # N,1, [0.5, 1.0]
-	A  = torch.rand(N,1) * 3 + 1   # N,1, [1.0, 3.0]
-	ts = torch.arange(T) * params[task]['dt'] # T
+	phis = torch.rand(N, 1)  #
+	fs = torch.rand(N, 1) * .5 + .5  # N,1, [0.5, 1.0]
+	A  = torch.rand(N, 1) * 3 + 1   # N,1, [1.0, 3.0]
+	ts = torch.arange(T) * params[task]['dt']  # T
 	ts = torch.stack([ts]*N)  # N,T
 	ts = (ts*fs+phis) * 2*np.pi # N,T
 	X  = ts.sin() * A
 	if noise > 0.0:
 		X = add_noise(X, X.shape[1], noise)
-	X = X.unsqueeze(-1) # N,T,1
+	X = X.unsqueeze(-1)  # N,T,1
 	fname = data_path[:[m.start() for m in re.finditer('/', data_path)][-1]+1] + 'example_sin_' + flag
-	plot_sin_gt(X,fname=fname)
+	plot_sin_gt(X, fname=fname)
 	torch.save(X, data_path)
 
 
