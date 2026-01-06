@@ -1,6 +1,7 @@
 # Modulated Neural ODEs (MoNODE)
 
-Pytorch implementation of Modulated Neural ODEs
+Pytorch implementation of Modulated Neural ODEs.
+The code is adapted from MoNODE with edit in model.core.inv_enc, and model.model_misc.
 
 ## Replicating the experiments
 The code was developed and tested with `python3.8` and `pytorch 1.13`. You can install the relevant packages via 
