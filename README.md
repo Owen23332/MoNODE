@@ -24,7 +24,7 @@ For Mocap data, please download the files reported in the appendix from http://m
 ## Train
 
 Note current model only work for sine!
-To the train the models run the `main.py` file with passing the relevant arguments. For example commands for each dataset please see the `commands.txt` file. 
+For trainingm the model runs the `main.py` file with passing the relevant arguments. For example commands for each dataset please see the `commands.txt` file. 
 An example commands for sine data with MoNODE model:
 ```
 python main.py --task sin --model node --solver rk4 --batch_size 10 --T_in 3 --T_inv 10 --ode_latent_dim 4 --modulator_dim 4 --Nepoch 600
